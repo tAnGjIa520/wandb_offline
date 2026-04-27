@@ -13,12 +13,16 @@ class SocketClient:
     def __init__(self, socket_path: str = SOCKET_PATH):
         self.socket_path = socket_path
 
-    def send_command(self, command: str, path: str = None) -> dict:
+    def send_command(self, command: str, path: str = None, extra: dict = None) -> dict:
         """发送命令到服务器"""
         request = {
             'command': command,
             'path': path
         }
+
+        # 添加额外参数
+        if extra:
+            request.update(extra)
 
         try:
             # 连接到服务器

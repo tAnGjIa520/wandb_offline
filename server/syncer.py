@@ -14,10 +14,11 @@ logger = logging.getLogger(__name__)
 class WandbSyncer:
     """Wandb 同步器"""
 
-    def __init__(self):
+    def __init__(self, history=None):
         self.sync_queue = Queue()
         self.syncing = set()
         self.lock = Lock()
+        self.history = history
         self.worker_thread = Thread(target=self._sync_worker, daemon=True)
         self.worker_thread.start()
 
@@ -57,6 +58,15 @@ class WandbSyncer:
         from common.config import SYNC_DELAY
         time.sleep(SYNC_DELAY)
 
+        # 获取目录路径
+        directory = os.path.dirname(run_path)
+
+        # 记录同步开始
+        sync_id = None
+        if self.history:
+            sync_id = self.history.record_sync_start(run_path, directory)
+
+        start_time = time.time()
         logger.info(f"Syncing run: {run_path}")
 
         try:
@@ -67,16 +77,38 @@ class WandbSyncer:
                 timeout=300  # 5分钟超时
             )
 
+            duration = time.time() - start_time
+
             if result.returncode == 0:
-                logger.info(f"Successfully synced: {run_path}")
+                logger.info(f"Successfully synced: {run_path} ({duration:.1f}s)")
                 logger.debug(f"Output: {result.stdout}")
+
+                # 记录成功
+                if self.history and sync_id:
+                    self.history.record_sync_success(sync_id, duration)
             else:
                 logger.error(f"Sync failed: {run_path}")
                 logger.error(f"Error: {result.stderr}")
+
+                # 记录失败
+                if self.history and sync_id:
+                    self.history.record_sync_failure(sync_id, duration, result.stderr)
+
         except subprocess.TimeoutExpired:
-            logger.error(f"Sync timeout: {run_path}")
+            duration = time.time() - start_time
+            error_msg = "Sync timeout after 300s"
+            logger.error(f"{error_msg}: {run_path}")
+
+            if self.history and sync_id:
+                self.history.record_sync_failure(sync_id, duration, error_msg)
+
         except Exception as e:
-            logger.error(f"Sync error: {run_path}, {e}")
+            duration = time.time() - start_time
+            error_msg = str(e)
+            logger.error(f"Sync error: {run_path}, {error_msg}")
+
+            if self.history and sync_id:
+                self.history.record_sync_failure(sync_id, duration, error_msg)
 
     @staticmethod
     def is_wandb_offline_run(path: str) -> bool:

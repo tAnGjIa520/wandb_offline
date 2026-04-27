@@ -25,8 +25,12 @@ setup(
     ],
     entry_points={
         "console_scripts": [
+            # 完整命令
             "wandb-sync-server=server.daemon:main",
             "wandb-sync-client=client.cli:main",
+            # 短命令别名
+            "wbs=server.daemon:main",
+            "wbc=client.cli:main",
         ],
     },
 )

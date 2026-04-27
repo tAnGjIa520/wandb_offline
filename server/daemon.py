@@ -9,6 +9,7 @@ from threading import Thread
 from server.socket_server import SocketServer
 from server.syncer import WandbSyncer
 from server.watcher import DirectoryMonitor
+from server.history import SyncHistory
 from common.config import SOCKET_PATH, AUTO_CLEANUP_SECONDS, CLEANUP_CHECK_INTERVAL
 
 # 配置日志
@@ -23,7 +24,8 @@ class WandbSyncDaemon:
     """Wandb 同步守护进程"""
 
     def __init__(self):
-        self.syncer = WandbSyncer()
+        self.history = SyncHistory()
+        self.syncer = WandbSyncer(history=self.history)
         self.monitor = DirectoryMonitor(self.syncer)
         self.socket_server = SocketServer(SOCKET_PATH, self._handle_command)
         self.running = False
@@ -128,10 +130,35 @@ class WandbSyncDaemon:
 
             elif command == 'list':
                 directories = self.monitor.get_monitored_directories()
+                # 添加统计信息
+                for path in directories:
+                    stats = self.history.get_directory_stats(path)
+                    directories[path]['stats'] = stats
                 return {
                     'success': True,
                     'message': f'Monitoring {len(directories)} directories',
                     'data': {'directories': directories}
+                }
+
+            elif command == 'history':
+                limit = request.get('limit', 20)
+                failed_only = request.get('failed_only', False)
+                directory = request.get('directory')
+
+                history = self.history.get_history(limit, failed_only, directory)
+                return {
+                    'success': True,
+                    'message': f'Found {len(history)} records',
+                    'data': {'history': history}
+                }
+
+            elif command == 'stats':
+                directory = request.get('directory')
+                stats = self.history.get_statistics(directory)
+                return {
+                    'success': True,
+                    'message': 'Statistics retrieved',
+                    'data': {'stats': stats}
                 }
 
             elif command == 'status':

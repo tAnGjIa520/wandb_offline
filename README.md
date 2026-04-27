@@ -16,6 +16,8 @@ Wandb 离线同步系统，用于 GPU 集群环境中自动同步离线训练数
 - ✅ 智能去重，避免重复监控
 - ✅ 简单的命令行接口
 - ✅ 后台守护进程运行
+- ✅ 同步历史记录和统计信息
+- ✅ 短命令别名（wbs/wbc）
 
 ## 安装
 
@@ -40,9 +42,13 @@ pip install git+https://github.com/tAnGjIa520/wandb_offline.git
 ```bash
 # 前台运行（用于测试）
 wandb-sync-server
+# 或使用短命令
+wbs
 
 # 后台运行（推荐）
 nohup wandb-sync-server > /tmp/wandb-sync.log 2>&1 &
+# 或使用短命令
+nohup wbs > /tmp/wandb-sync.log 2>&1 &
 ```
 
 ### 2. 添加监控目录
@@ -85,17 +91,46 @@ python train.py
 ### 4. 查看状态
 
 ```bash
-# 查看监控列表
+# 查看监控列表（包含统计信息）
 wandb-sync-client list
+# 或使用短命令
+wbc list
 
 # 查看守护进程状态
 wandb-sync-client status
+wbc status
+
+# 查看同步历史
+wandb-sync-client history [--limit 20] [--failed]
+wbc history --limit 10
+wbc history --failed  # 只看失败的
+
+# 查看统计信息
+wandb-sync-client stats
+wbc stats
 ```
 
 ### 5. 移除监控
 
 ```bash
 wandb-sync-client remove /path/to/shared/wandb
+# 或使用短命令
+wbc remove /path/to/shared/wandb
+```
+
+## 命令别名
+
+为了方便使用，提供了短命令别名：
+- `wbs` = `wandb-sync-server`（server 的缩写）
+- `wbc` = `wandb-sync-client`（client 的缩写）
+
+所有命令都可以使用短别名，例如：
+```bash
+wbs                    # 启动服务器
+wbc add /path          # 添加监控
+wbc list               # 查看列表
+wbc history            # 查看历史
+wbc stats              # 查看统计
 ```
 
 ## 工作原理
