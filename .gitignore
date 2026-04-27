@@ -132,3 +132,10 @@ dmypy.json
 # Project specific
 *.sock
 *.pid
+
+# Claude Code
+.claude/
+.omc/
+
+# Plans
+plans/
