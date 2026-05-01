@@ -17,13 +17,19 @@ class WandbSyncer:
     def __init__(self, history=None):
         self.sync_queue = Queue()
         self.syncing = set()
+        self.last_sync_time = {}  # run_path -> timestamp of last sync
         self.lock = Lock()
         self.history = history
         self.worker_thread = Thread(target=self._sync_worker, daemon=True)
         self.worker_thread.start()
 
-    def add_sync_task(self, run_path: str):
-        """添加同步任务"""
+    def add_sync_task(self, run_path: str, force=False):
+        """添加同步任务
+
+        Args:
+            run_path: run 目录路径
+            force: 是否强制添加（用于重新同步活跃 runs）
+        """
         run_path = os.path.abspath(run_path)
 
         with self.lock:
@@ -46,6 +52,8 @@ class WandbSyncer:
             finally:
                 with self.lock:
                     self.syncing.discard(run_path)
+                    # 记录最后同步时间
+                    self.last_sync_time[run_path] = time.time()
                 self.sync_queue.task_done()
 
     def _sync_run(self, run_path: str):
@@ -126,3 +134,8 @@ class WandbSyncer:
         # 检查是否有 .wandb 文件
         wandb_files = list(path_obj.glob('*.wandb'))
         return len(wandb_files) > 0
+
+    def get_last_sync_time(self, run_path: str):
+        """获取 run 的最后同步时间"""
+        with self.lock:
+            return self.last_sync_time.get(run_path)
